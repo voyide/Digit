@@ -32,11 +32,17 @@ jobs:
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;27.0.12077973" "cmake;3.22.1"
 
-      - name: Generate Flutter Project Structure & Restore Custom Code
+      - name: Generate Flutter Project Structure & Protect Custom Code
         run: |
+          # 1. Physically hide your custom code so Flutter can't touch it
+          mv lib lib_backup
+          
+          # 2. Generate the Android framework (and the default Counter app)
           flutter create --org com.universal.sequencer --project-name universal_sequencer .
-          # MAGIC FIX: Restores our custom lib/main.dart that 'flutter create' just tried to overwrite!
-          git checkout -- .
+          
+          # 3. Nuke the default app and put your native sequencer back!
+          rm -rf lib
+          mv lib_backup lib
           
       - name: Inject Required Dependencies
         run: |
