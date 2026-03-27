@@ -43,14 +43,29 @@ jobs:
           flutter pub add ffi
           flutter pub add google_fonts
 
-      - name: Inject C++ Gradle Config
+      - name: Append C++ Gradle Config safely
         run: |
-          FILE="android/app/build.gradle.kts"
-          perl -pi -e 'print "    ndkVersion = \"27.0.12077973\"\n    externalNativeBuild {\n        cmake {\n            path = file(\"src/main/cpp/CMakeLists.txt\")\n        }\n    }\n" if /android \{/' $FILE
-          perl -pi -e 'print "        externalNativeBuild {\n            cmake {\n                cppFlags += listOf(\"-O3\", \"-DNDEBUG\", \"-std=c++17\")\n            }\n        }\n        ndk {\n            abiFilters += listOf(\"arm64-v8a\", \"armeabi-v7a\", \"x86_64\")\n        }\n" if /defaultConfig \{/' $FILE
-
-      - name: Get Dependencies
-        run: flutter pub get
+          cat << 'EOF' >> android/app/build.gradle.kts
+          
+          android {
+              ndkVersion = "27.0.12077973"
+              externalNativeBuild {
+                  cmake {
+                      path = file("src/main/cpp/CMakeLists.txt")
+                  }
+              }
+              defaultConfig {
+                  ndk {
+                      abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+                  }
+                  externalNativeBuild {
+                      cmake {
+                          cppFlags += listOf("-O3", "-DNDEBUG", "-std=c++17")
+                      }
+                  }
+              }
+          }
+          EOF
 
       - name: Build APK
         run: flutter build apk --release
