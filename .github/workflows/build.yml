@@ -29,8 +29,8 @@ jobs:
 
       - name: Accept Android licenses & Install NDK
         run: |
-          yes | sdkmanager --licenses
-          sdkmanager "ndk;27.0.12077973" "cmake;3.22.1"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;27.0.12077973" "cmake;3.22.1"
 
       - name: Generate Flutter Project Structure
         run: flutter create --org com.universal.sequencer --project-name universal_sequencer .
@@ -41,14 +41,13 @@ jobs:
           flutter pub add share_plus
           flutter pub add path_provider
           flutter pub add ffi
+          flutter pub add google_fonts
 
       - name: Inject C++ Gradle Config
         run: |
           FILE="android/app/build.gradle.kts"
-          # Inject NDK and CMake paths
-          sed -i '/android {/a \    ndkVersion = "27.0.12077973"\n    externalNativeBuild {\n        cmake {\n            path = file("src/main/cpp/CMakeLists.txt")\n        }\n    }' $FILE
-          # Inject C++ compiler flags
-          sed -i '/defaultConfig {/a \        externalNativeBuild {\n            cmake {\n                cppFlags += listOf("-O3", "-DNDEBUG", "-std=c++17")\n            }\n        }\n        ndk {\n            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")\n        }' $FILE
+          perl -pi -e 'print "    ndkVersion = \"27.0.12077973\"\n    externalNativeBuild {\n        cmake {\n            path = file(\"src/main/cpp/CMakeLists.txt\")\n        }\n    }\n" if /android \{/' $FILE
+          perl -pi -e 'print "        externalNativeBuild {\n            cmake {\n                cppFlags += listOf(\"-O3\", \"-DNDEBUG\", \"-std=c++17\")\n            }\n        }\n        ndk {\n            abiFilters += listOf(\"arm64-v8a\", \"armeabi-v7a\", \"x86_64\")\n        }\n" if /defaultConfig \{/' $FILE
 
       - name: Get Dependencies
         run: flutter pub get
