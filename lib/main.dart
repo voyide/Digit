@@ -51,7 +51,7 @@ class EngineConfig {
   final int postGridC;
   final int targetT;
   final int modMc;
-  final int tupleK; // Added tuple config length
+  final int tupleK;
 
   EngineConfig({
     required this.startN, required this.bNum, required this.renderR,
@@ -83,7 +83,7 @@ class ExportConfig {
 
 Future<Uint8List> _backgroundExportTask(ExportConfig eCfg) async {
   if (eCfg.isGif) {
-    final animation = img.Image(width: eCfg.engine.renderC, height: eCfg.engine.renderR, numFrames: eCfg.frames);
+    img.Image? animation;
     
     for (int f = 0; f < eCfg.frames; f++) {
       int currentB = eCfg.engine.bNum;
@@ -109,18 +109,27 @@ Future<Uint8List> _backgroundExportTask(ExportConfig eCfg) async {
       );
 
       final buffer = _calculateMathBuffer(modEngine);
-      final frame = animation.frames[f];
+      
+      // FIXED: Build individual frame using image package v4 API
+      final frame = img.Image(width: modEngine.renderC, height: modEngine.renderR, numChannels: 4);
+      
       for (int i = 0; i < buffer.length; i++) {
         int r = i ~/ modEngine.renderC;
         int c = i % modEngine.renderC;
         int col = (buffer[i] * 255) ~/ (modEngine.modM > 1 ? modEngine.modM - 1 : 1);
         frame.setPixelRgba(c, r, col, col, col, 255);
       }
+
+      if (animation == null) {
+        animation = frame;
+      } else {
+        animation.addFrame(frame);
+      }
     }
-    return img.encodeGif(animation);
+    return img.encodeGif(animation!);
   } else {
     final buffer = _calculateMathBuffer(eCfg.engine);
-    final image = img.Image(width: eCfg.engine.renderC, height: eCfg.engine.renderR);
+    final image = img.Image(width: eCfg.engine.renderC, height: eCfg.engine.renderR, numChannels: 4);
     for (int i = 0; i < buffer.length; i++) {
       int r = i ~/ eCfg.engine.renderC;
       int c = i % eCfg.engine.renderC;
@@ -295,7 +304,7 @@ int _solveForN(BigInt n, BigInt bigB, EngineConfig config) {
           double dist = math.sqrt(math.pow(xiX - xNextX, 2) + math.pow(xiY - xNextY, 2));
           int val = 0;
           
-          if (lhs == 15) val = dist.toInt(); // Exact mapping to int
+          if (lhs == 15) val = dist.toInt(); 
           else if (lhs == 16) val = dist.floor();
           else if (lhs == 17) val = dist.ceil();
           else if (lhs == 18) val = dist.round();
@@ -358,8 +367,8 @@ int _solveForN(BigInt n, BigInt bigB, EngineConfig config) {
           
           for (int c = 0; c < b; c++) {
             int val = 0;
-            if (lhs == 10) val = ((a - bVal).abs() - (bVal - c).abs()).abs(); // prev=a, xi=bVal, next=c
-            else if (lhs == 11) val = (a - bVal - c).abs(); // xi=a, next=bVal, nnext=c
+            if (lhs == 10) val = ((a - bVal).abs() - (bVal - c).abs()).abs(); 
+            else if (lhs == 11) val = (a - bVal - c).abs(); 
             
             bool c1 = _evaluateRHS(config.rhs1Rule, val, di, dNext, b);
             bool conditionMet = c1;
@@ -376,7 +385,7 @@ int _solveForN(BigInt n, BigInt bigB, EngineConfig config) {
     return totalWays;
   }
 
-  // ENGINE 5: STANDARD 1D DP (Rules 0-6, 8, 9, 12, 13, 19-35)
+  // ENGINE 5: STANDARD 1D DP 
   List<int> v = List.filled(b, 1);
   List<int> nextV = List.filled(b, 0);
   bool needsX1 = (lhs == 1);
@@ -437,21 +446,14 @@ int _solveForN(BigInt n, BigInt bigB, EngineConfig config) {
 int _evaluateLHS(int rule, int xi, int xNext, int b, int di, int dNext) {
   switch (rule) {
     case 0: return (xi - xNext).abs();
-    // Rule 1 is handled in the Engine directly (needs x1 context)
     case 2: return (xNext - xi + b) % b;
     case 3: return (xi + xNext) % b;
     case 4: return xi > xNext ? xi : xNext;
     case 5: return xi < xNext ? xi : xNext;
     case 6: return (xi ^ xNext) % b;
-    // Rule 7 handled in Engine (Accumulator)
     case 8: return (xi * xNext) % b;
     case 9: return ((b - 1 - xi) - xNext).abs();
-    // Rules 10, 11 handled in Engine (Lookback)
     case 12: return ((xi * xi) % b - xNext).abs();
-    // Rule 14 handled in Engine (Global)
-    // Rules 15-18 handled in Engine (Complex)
-    
-    // Extrapolated rules starting at 19 for standard Engine
     case 19: return ((xi * xi * xi) + (xNext * xNext * xNext)) % b;
     case 20: return ((xi * xi) - (xNext * xNext)).abs();
     case 21: int a=xi, c=xNext; while(c!=0){int t=c; c=a%c; a=t;} return a;
@@ -482,8 +484,6 @@ bool _evaluateRHS(int rule, int val, int di, int dNext, int b) {
     case 9: return val == (di + 1) % b;
     case 10: return val == (di + dNext) % b;
     case 11: return val == (di * dNext) % b;
-    
-    // Extrapolated RHS rules
     case 12: return (val % 3) == (di % 3);
     case 13: return (val % 4) == (di % 4);
     case 14: return val == ((di * di) % b);
