@@ -32,8 +32,11 @@ jobs:
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;27.0.12077973" "cmake;3.22.1"
 
-      - name: Generate Flutter Project Structure
-        run: flutter create --org com.universal.sequencer --project-name universal_sequencer .
+      - name: Generate Flutter Project Structure & Restore Custom Code
+        run: |
+          flutter create --org com.universal.sequencer --project-name universal_sequencer .
+          # MAGIC FIX: Restores our custom lib/main.dart that 'flutter create' just tried to overwrite!
+          git checkout -- .
           
       - name: Inject Required Dependencies
         run: |
@@ -66,6 +69,9 @@ jobs:
               }
           }
           EOF
+
+      - name: Get Dependencies
+        run: flutter pub get
 
       - name: Build APK
         run: flutter build apk --release
